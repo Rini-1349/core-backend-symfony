@@ -1,0 +1,49 @@
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+  symfony_app_url: "%env(SYMFONY_APP_URL)%"
+  target_app_url: "%env(TARGET_APP_URL)%"
+
+services:
+  # default configuration for services in *this* file
+  _defaults:
+    autowire: true # Automatically injects dependencies in your services.
+    autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+  # makes classes in src/ available to be used as services
+  # this creates a service per class whose id is the fully-qualified class name
+  App\:
+    resource: "../src/"
+    exclude:
+      - "../src/DependencyInjection/"
+      - "../src/Entity/"
+      - "../src/Kernel.php"
+
+  App\EventListener\JWTCreatedListener:
+    tags:
+      - { name: "kernel.event_listener", event: "lexik_jwt_authentication.on_jwt_created", method: "onJWTCreated" }
+
+  App\EventListener\JWTListener:
+    tags:
+      - { name: "kernel.event_listener", event: "lexik_jwt_authentication.on_jwt_invalid", method: "onJWTInvalid" }
+      - { name: "kernel.event_listener", event: "lexik_jwt_authentication.on_jwt_not_found", method: "onJWTNotFound" }
+
+  App\EventListener\JWTExpiredListener:
+    tags:
+      - { name: "kernel.event_listener", event: "lexik_jwt_authentication.on_jwt_expired", method: "onJWTExpired" }
+
+  App\EventListener\JWTAuthenticationFailureListener:
+    tags:
+      - { name: "kernel.event_listener", event: "lexik_jwt_authentication.on_authentication_failure", method: "onAuthenticationFailure" }
+
+  App\Security\Voter\EmailVerifiedVoter:
+    tags:
+      - { name: security.voter }
+
+  annotation_reader:
+    class: Doctrine\Common\Annotations\AnnotationReader
+  # add more service definitions when explicit configuration is needed
+  # please note that last definitions always *replace* previous ones

@@ -1,0 +1,5 @@
+framework:
+  default_locale: fr
+  translator:
+    paths:
+      - "%kernel.project_dir%/translations"
