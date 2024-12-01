@@ -93,13 +93,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\PrePersist]
     public function setCreatedAtValue(): void
     {
-        $this->createdAt = new \DateTimeImmutable("now", new \DateTimeZone('Europe/Paris'));
+        $this->createdAt = new \DateTime("now", new \DateTimeZone('Europe/Paris'));
     }
 
     #[ORM\PreUpdate]
     public function setUpdatedAtValue(): void
     {
-        $this->updatedAt = new \DateTimeImmutable("now", new \DateTimeZone('Europe/Paris'));
+        $this->updatedAt = new \DateTime("now", new \DateTimeZone('Europe/Paris'));
     }
 
     public function getId(): ?int

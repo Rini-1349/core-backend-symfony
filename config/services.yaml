@@ -50,6 +50,10 @@ services:
     tags:
       - { name: "kernel.event_subscriber" }
 
+  App\Service\QueryParameterService:
+    tags:
+      - { name: service.query_parameter }
+
   annotation_reader:
     class: Doctrine\Common\Annotations\AnnotationReader
   # add more service definitions when explicit configuration is needed
