@@ -53,7 +53,10 @@ class RegistrationController extends AbstractController
 
         $user->setRoles(['ROLE_USER']);
         $user->setPassword($passwordHasherFactory->getPasswordHasher(User::class)->hash($user->getPassword()));
-
+       
+        // Persist here to create a "createdAt" value
+        $em->persist($user);
+       
         $errors = $validator->validate($user);
 
         if ($errors->count() > 0) {
@@ -65,7 +68,6 @@ class RegistrationController extends AbstractController
             );
         }
 
-        $em->persist($user);
         $em->flush();
 
         // generate a signed url and email it to the user

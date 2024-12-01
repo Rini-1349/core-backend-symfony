@@ -23,6 +23,7 @@ class JWTCreatedListener
         $payload['lastname'] = $user->getLastname();
         $payload['firstname'] = $user->getFirstname();
         $payload['is_verified'] = $user->getIsVerified();
+        $payload['exp'] = strtotime("tomorrow 0:00"); // Le lendemain à minuit
 
         // Redéfinir le payload dans l'événement
         $event->setData($payload);

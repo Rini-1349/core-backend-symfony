@@ -43,6 +43,13 @@ services:
     tags:
       - { name: security.voter }
 
+  App\EventSubscriber\RequestLoggerSubscriber:
+    arguments:
+      $security: "@security.helper"
+      $requestLogger: "@monolog.logger.request"
+    tags:
+      - { name: "kernel.event_subscriber" }
+
   annotation_reader:
     class: Doctrine\Common\Annotations\AnnotationReader
   # add more service definitions when explicit configuration is needed
