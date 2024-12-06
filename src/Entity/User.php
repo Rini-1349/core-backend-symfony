@@ -29,7 +29,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(["getUser", "simpleUser", "email"])]
+    #[Groups(["getUser", "createUser", "email", "updateUser"])]
     #[Assert\NotNull(message: "Vous devez renseigner une adresse email.")]
     #[Assert\Email( message: "\"{{ value }}\" n'est pas une adresse email valide.")]
     #[Assert\Length(
@@ -51,7 +51,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $password = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(["getUser", "simpleUser"])]
+    #[Groups(["getUser", "createUser", "updateUser"])]
     #[Assert\NotNull(message: "Vous devez renseigner un nom.")]
     #[Assert\Length(
         min: 1,
@@ -62,7 +62,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $lastname = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(["getUser", "simpleUser"])]
+    #[Groups(["getUser", "createUser", "updateUser"])]
     #[Assert\NotNull(message: "Vous devez renseigner un prénom.")]
     #[Assert\Length(
         min: 1,
@@ -73,16 +73,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $firstname = null;
 
     #[ORM\Column]
-    #[Groups(["getUser", "simpleUser"])]
+    #[Groups(["getUser", "updateUser"])]
     private ?bool $isVerified = false;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    #[Groups(["getUser", "simpleUser"])]
+    #[Groups(["getUser"])]
     #[Assert\NotNull()]
     private ?\DateTimeInterface $createdAt = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    #[Groups(["getUser", "simpleUser"])]
+    #[Groups(["getUser"])]
     private ?\DateTimeInterface $updatedAt = null;
 
     public function __construct()

@@ -20,6 +20,7 @@ use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactoryInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use OpenApi\Attributes as OA;
 use Nelmio\ApiDocBundle\Annotation\Model;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class RegistrationController extends AbstractController
 {
@@ -45,9 +46,9 @@ class RegistrationController extends AbstractController
     )]
     #[OA\RequestBody(
         required : true,
-        content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['simpleUser', 'password']))
+        content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['createUser', 'password']))
     )]
-    public function register(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, PasswordHasherFactoryInterface $passwordHasherFactory): Response
+    public function register(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, PasswordHasherFactoryInterface $passwordHasherFactory, TagAwareCacheInterface $cache): Response
     {
         $user = $serializer->deserialize($request->getContent(), User::class, 'json');
 
@@ -69,6 +70,7 @@ class RegistrationController extends AbstractController
         }
 
         $em->flush();
+        $cache->invalidateTags(['usersCache']);
 
         // generate a signed url and email it to the user
         try {
@@ -300,7 +302,7 @@ class RegistrationController extends AbstractController
         required : true,
         content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['password']))
     )]
-    public function resetPassword(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UserRepository $userRepository, ValidatorInterface $validator, PasswordHasherFactoryInterface $passwordHasherFactory): Response
+    public function resetPassword(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UserRepository $userRepository, ValidatorInterface $validator, PasswordHasherFactoryInterface $passwordHasherFactory, TagAwareCacheInterface $cache): Response
     {
         $id = $request->query->get('id'); // retrieve the user id from the url
 
@@ -368,6 +370,7 @@ class RegistrationController extends AbstractController
 
         $em->persist($user);
         $em->flush();
+        $cache->invalidateTags(['usersCache']);
 
         $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
         
