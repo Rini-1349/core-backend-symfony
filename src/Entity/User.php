@@ -29,7 +29,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(["getUser", "createUser", "email", "updateUser"])]
+    #[Groups(["getUser", "createUser", "email", "updateUser", "profile"])]
     #[Assert\NotNull(message: "Vous devez renseigner une adresse email.")]
     #[Assert\Email( message: "\"{{ value }}\" n'est pas une adresse email valide.")]
     #[Assert\Length(
@@ -51,7 +51,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $password = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(["getUser", "createUser", "updateUser"])]
+    #[Groups(["getUser", "createUser", "updateUser", "profile"])]
     #[Assert\NotNull(message: "Vous devez renseigner un nom.")]
     #[Assert\Length(
         min: 1,
@@ -62,7 +62,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $lastname = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(["getUser", "createUser", "updateUser"])]
+    #[Groups(["getUser", "createUser", "updateUser", "profile"])]
     #[Assert\NotNull(message: "Vous devez renseigner un prénom.")]
     #[Assert\Length(
         min: 1,

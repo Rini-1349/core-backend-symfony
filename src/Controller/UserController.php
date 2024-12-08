@@ -20,9 +20,84 @@ use Nelmio\ApiDocBundle\Annotation\Model;
 use OpenApi\Attributes as OA;
 use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactoryInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Bundle\SecurityBundle\Security as SecurityBundleSecurity;
 
 class UserController extends AbstractController
 {
+    #[Route('/api/profile', name: 'getProfile', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/profile',
+        tags: ['User'],
+        summary: 'Get profile',
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'OK'
+            )
+        ]
+    )]
+    public function getProfile(SecurityBundleSecurity $security, SerializerInterface $serializer): JsonResponse
+    {
+        $user = $security?->getUser();
+        $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['profile']));
+            
+        return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_OK);
+    }
+
+
+    #[Route('/api/profile', name: 'updateProfile', methods: ['PUT'])]
+    #[OA\Put(
+        path: '/api/profile',
+        tags: ['User'],
+        summary: 'Update profile',
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'OK'
+            )
+        ]
+    )]
+    #[OA\RequestBody(
+        required : true,
+        content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['profile']))
+    )]
+    public function updateProfile(SecurityBundleSecurity $security, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse
+    {
+        $currentUser = $security?->getUser();
+
+        $updatedUser = $serializer->deserialize(
+            $request->getContent(), 
+            User::class, 
+            'json'
+        );
+
+        foreach (['lastname', 'firstname', 'email'] as $field) {
+            $setter = 'set' . ucfirst($field);
+            $getter = 'get' . ucfirst($field);
+            $currentUser->$setter($updatedUser->$getter());
+        }
+
+        $errors = $validator->validate($currentUser);
+
+        if ($errors->count() > 0) {
+            return new JsonResponse(
+                $serializer->serialize($errors, 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
+        $em->persist($currentUser);
+        $em->flush();
+        $cache->invalidateTags(['usersCache']);
+
+        $jsonUser = $serializer->serialize($currentUser, 'json', SerializationContext::create()->setGroups(['profile']));
+        
+        return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_OK);
+    }
+
+
     #[Route('/api/users', name: 'usersList', methods: ['GET'])]
     #[IsGranted('ROLE_USER', message: 'Vous n\'avez pas les droits suffisants pour accéder à ces données')]
     #[OA\Get(
@@ -183,7 +258,6 @@ class UserController extends AbstractController
         $user = $serializer->deserialize($request->getContent(), User::class, 'json');
 
         $user->setRoles(['ROLE_USER']);
-        $user->setIsVerified(true);
         $user->setPassword($passwordHasherFactory->getPasswordHasher(User::class)->hash($user->getPassword()));
     
         // Persist here to create a "createdAt" value
@@ -216,8 +290,8 @@ class UserController extends AbstractController
         summary: 'Update user',
         responses: [
             new OA\Response(
-                response: 204,
-                description: 'No content'
+                response: 200,
+                description: 'OK'
             )
         ]
     )]
@@ -230,7 +304,7 @@ class UserController extends AbstractController
         required : true,
         content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['updateUser']))
     )]
-    public function updateState(User $currentUser, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse
+    public function updateUser(User $currentUser, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse
     {
         $updatedUser = $serializer->deserialize(
             $request->getContent(), 
