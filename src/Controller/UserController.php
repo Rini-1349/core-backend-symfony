@@ -27,7 +27,7 @@ class UserController extends AbstractController
     #[Route('/api/profile', name: 'getProfile', methods: ['GET'])]
     #[OA\Get(
         path: '/api/profile',
-        tags: ['User'],
+        tags: ['Profile'],
         summary: 'Get profile',
         responses: [
             new OA\Response(
@@ -48,7 +48,7 @@ class UserController extends AbstractController
     #[Route('/api/profile', name: 'updateProfile', methods: ['PUT'])]
     #[OA\Put(
         path: '/api/profile',
-        tags: ['User'],
+        tags: ['Profile'],
         summary: 'Update profile',
         responses: [
             new OA\Response(
@@ -338,6 +338,69 @@ class UserController extends AbstractController
         return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_OK);
     }
 
+
+    #[Route('/api/users/{id}/edit-password', name: 'editUserPassword', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/users/{id}/edit-password',
+        tags: ['User'],
+        summary: 'Edit user password',
+        parameters: [
+            new OA\Parameter(
+                name: "id",
+                description: "User ID",
+                in: "path",
+                required: true,
+                schema: new OA\Schema(type: "integer")
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'OK',
+                content: new OA\JsonContent(
+                    type: 'array',
+                    items: new OA\Items(ref: new Model(type: User::class, groups: ['getUser']))
+                )
+            )
+        ]
+    )]
+    #[OA\RequestBody(
+        required : true,
+        content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['newPassword']))
+    )]
+    public function editUserPassword(User $user, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, PasswordHasherFactoryInterface $passwordHasherFactory): Response
+    {
+        $content = $serializer->deserialize($request->getContent(), 'array', 'json');
+
+        if (!isset($content['newPassword'])) {
+            return new JsonResponse(
+                $serializer->serialize(['message' => 'Mot de passe obligatoire'], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
+        $user->setPassword($passwordHasherFactory->getPasswordHasher(User::class)->hash($content['newPassword']));
+
+        $errors = $validator->validate($user);
+
+        if ($errors->count() > 0) {
+            return new JsonResponse(
+                $serializer->serialize($errors[0], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
+        $em->persist($user);
+        $em->flush();
+
+        $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
+        
+        return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_OK);
+    }
 
 
     #[Route('/api/users/{id}', name: 'deleteUser', methods: ['DELETE'])]

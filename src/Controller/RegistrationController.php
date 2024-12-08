@@ -302,7 +302,7 @@ class RegistrationController extends AbstractController
         required : true,
         content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['password']))
     )]
-    public function resetPassword(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UserRepository $userRepository, ValidatorInterface $validator, PasswordHasherFactoryInterface $passwordHasherFactory, TagAwareCacheInterface $cache): Response
+    public function resetPassword(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UserRepository $userRepository, ValidatorInterface $validator, PasswordHasherFactoryInterface $passwordHasherFactory): Response
     {
         $id = $request->query->get('id'); // retrieve the user id from the url
 
@@ -370,7 +370,6 @@ class RegistrationController extends AbstractController
 
         $em->persist($user);
         $em->flush();
-        $cache->invalidateTags(['usersCache']);
 
         $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
         
