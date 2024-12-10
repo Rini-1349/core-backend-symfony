@@ -16,10 +16,10 @@ use App\Repository\UserRepository;
 use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactoryInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use OpenApi\Attributes as OA;
 use Nelmio\ApiDocBundle\Annotation\Model;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class RegistrationController extends AbstractController
@@ -48,12 +48,12 @@ class RegistrationController extends AbstractController
         required : true,
         content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['createUser', 'password']))
     )]
-    public function register(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, PasswordHasherFactoryInterface $passwordHasherFactory, TagAwareCacheInterface $cache): Response
+    public function register(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, UserPasswordHasherInterface $passwordHasher, TagAwareCacheInterface $cache): Response
     {
         $user = $serializer->deserialize($request->getContent(), User::class, 'json');
 
         $user->setRoles(['ROLE_USER']);
-        $user->setPassword($passwordHasherFactory->getPasswordHasher(User::class)->hash($user->getPassword()));
+        $user->setPassword($passwordHasher->hashPassword($user, $user->getPassword()));
        
         // Persist here to create a "createdAt" value
         $em->persist($user);
@@ -302,7 +302,7 @@ class RegistrationController extends AbstractController
         required : true,
         content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['password']))
     )]
-    public function resetPassword(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UserRepository $userRepository, ValidatorInterface $validator, PasswordHasherFactoryInterface $passwordHasherFactory): Response
+    public function resetPassword(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UserRepository $userRepository, ValidatorInterface $validator, UserPasswordHasherInterface $passwordHasher): Response
     {
         $id = $request->query->get('id'); // retrieve the user id from the url
 
@@ -355,7 +355,7 @@ class RegistrationController extends AbstractController
             );
         }
 
-        $user->setPassword($passwordHasherFactory->getPasswordHasher(User::class)->hash($content['password']));
+        $user->setPassword($passwordHasher->hashPassword($user, $content['password']));
 
         $errors = $validator->validate($user);
 

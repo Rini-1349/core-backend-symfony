@@ -18,9 +18,9 @@ use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use Nelmio\ApiDocBundle\Annotation\Model;
 use OpenApi\Attributes as OA;
-use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactoryInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Bundle\SecurityBundle\Security as SecurityBundleSecurity;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class UserController extends AbstractController
 {
@@ -93,6 +93,89 @@ class UserController extends AbstractController
         $cache->invalidateTags(['usersCache']);
 
         $jsonUser = $serializer->serialize($currentUser, 'json', SerializationContext::create()->setGroups(['profile']));
+        
+        return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_OK);
+    }
+
+
+    #[Route('/api/profile/edit-password', name: 'editProfilePassword', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/profile/edit-password',
+        tags: ['Profile'],
+        summary: 'Edit profile password',
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'OK',
+                content: new OA\JsonContent(
+                    type: 'array',
+                    items: new OA\Items(ref: new Model(type: User::class, groups: ['getUser']))
+                )
+            )
+        ]
+    )]
+    #[OA\RequestBody(
+        required: true,
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(property: 'currentPassword', type: 'string', description: 'Ancien mot de passe'),
+                new OA\Property(property: 'newPassword', type: 'string', description: 'Nouveau mot de passe')
+            ]
+        )
+    )]
+    public function editProfilePassword(SecurityBundleSecurity $security, UserRepository $userRepository, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, UserPasswordHasherInterface $passwordHasher): Response
+    {
+        $loggedUser = $security?->getUser();
+        
+        if (!$loggedUser) {
+            return new JsonResponse(
+                $serializer->serialize(['message' => 'Problème lors de la récupération des informations de votre compte'], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
+        $user = $userRepository->findOneByEmail($loggedUser->getUserIdentifier());
+
+        $content = $serializer->deserialize($request->getContent(), 'array', 'json');
+
+        if (!isset($content['currentPassword']) || !isset($content['newPassword'])) {
+            return new JsonResponse(
+                $serializer->serialize(['message' => 'Ancien et nouveau mots de passe obligatoires'], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
+        if (!$passwordHasher->isPasswordValid($user, $content['currentPassword'])) {
+            return new JsonResponse(
+                $serializer->serialize(['message' => 'Ancien mot de passe incorrect'], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
+        $user->setPassword($passwordHasher->hashPassword($user, $content['newPassword']));
+
+        $errors = $validator->validate($user);
+
+        if ($errors->count() > 0) {
+            return new JsonResponse(
+                $serializer->serialize($errors[0], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
+        $em->persist($user);
+        $em->flush();
+
+        $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
         
         return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_OK);
     }
@@ -253,12 +336,12 @@ class UserController extends AbstractController
         required : true,
         content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['createUser', 'password']))
     )]
-    public function createUser(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, PasswordHasherFactoryInterface $passwordHasherFactory, TagAwareCacheInterface $cache): JsonResponse
+    public function createUser(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, UserPasswordHasherInterface $passwordHasher, TagAwareCacheInterface $cache): JsonResponse
     {
         $user = $serializer->deserialize($request->getContent(), User::class, 'json');
 
         $user->setRoles(['ROLE_USER']);
-        $user->setPassword($passwordHasherFactory->getPasswordHasher(User::class)->hash($user->getPassword()));
+        $user->setPassword($passwordHasher->hashPassword($user, $user->getPassword()));
     
         // Persist here to create a "createdAt" value
         $em->persist($user);
@@ -368,7 +451,7 @@ class UserController extends AbstractController
         required : true,
         content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['newPassword']))
     )]
-    public function editUserPassword(User $user, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, PasswordHasherFactoryInterface $passwordHasherFactory): Response
+    public function editUserPassword(User $user, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, UserPasswordHasherInterface $passwordHasher): Response
     {
         $content = $serializer->deserialize($request->getContent(), 'array', 'json');
 
@@ -381,7 +464,7 @@ class UserController extends AbstractController
             );
         }
 
-        $user->setPassword($passwordHasherFactory->getPasswordHasher(User::class)->hash($content['newPassword']));
+        $user->setPassword($passwordHasher->hashPassword($user, $content['newPassword']));
 
         $errors = $validator->validate($user);
 
