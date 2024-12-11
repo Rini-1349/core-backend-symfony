@@ -38,8 +38,18 @@ class RegistrationController extends AbstractController
                 response: 201,
                 description: 'Created',
                 content: new OA\JsonContent(
-                    type: 'array',
-                    items: new OA\Items(ref: new Model(type: User::class, groups: ['getUser']))
+                    type: 'object',
+                    properties: [
+                        new OA\Property(
+                            property: 'message',
+                            type: 'string',
+                        ),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            ref: new Model(type: User::class, groups: ['getUser'])
+                        )
+                    ]
                 )
             )
         ]
@@ -91,8 +101,13 @@ class RegistrationController extends AbstractController
         }
         
         $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
+
+        $responseContent = [
+            'message' => 'Compte créé avec succès. Veuillez valider votre adresse email via le lien qui vous a été envoyé.',
+            'data' => json_decode($jsonUser, true), // Convertir en tableau pour encapsuler dans la réponse.
+        ];
         
-        return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_CREATED);
+        return JsonResponse::fromJsonString(json_encode($responseContent))->setStatusCode(Response::HTTP_CREATED);
     }
 
 
@@ -106,8 +121,18 @@ class RegistrationController extends AbstractController
                 response: 200,
                 description: 'OK',
                 content: new OA\JsonContent(
-                    type: 'array',
-                    items: new OA\Items(ref: new Model(type: User::class, groups: ['getUser']))
+                    type: 'object',
+                    properties: [
+                        new OA\Property(
+                            property: 'message',
+                            type: 'string',
+                        ),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            ref: new Model(type: User::class, groups: ['getUser'])
+                        )
+                    ]
                 )
             )
         ]
@@ -162,7 +187,12 @@ class RegistrationController extends AbstractController
         
         $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
         
-        return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_OK);
+        $responseContent = [
+            'message' => 'Un email de réinitialisation a été envoyé à votre adresse.',
+            'data' => json_decode($jsonUser, true), // Convertir en tableau pour encapsuler dans la réponse.
+        ];
+
+        return JsonResponse::fromJsonString(json_encode($responseContent))->setStatusCode(Response::HTTP_OK);
     }
 
     #[Route('/api/verify-email', name: 'verifyEmail', methods: ['GET'])]
@@ -205,8 +235,18 @@ class RegistrationController extends AbstractController
                 response: 200,
                 description: 'OK',
                 content: new OA\JsonContent(
-                    type: 'array',
-                    items: new OA\Items(ref: new Model(type: User::class, groups: ['getUser']))
+                    type: 'object',
+                    properties: [
+                        new OA\Property(
+                            property: 'message',
+                            type: 'string',
+                        ),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            ref: new Model(type: User::class, groups: ['getUser'])
+                        )
+                    ]
                 )
             )
         ]
@@ -249,7 +289,12 @@ class RegistrationController extends AbstractController
 
         $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
         
-        return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_OK);
+        $responseContent = [
+            'message' => 'Votre email a été vérifié avec succès.',
+            'data' => json_decode($jsonUser, true), // Convertir en tableau pour encapsuler dans la réponse.
+        ];
+
+        return JsonResponse::fromJsonString(json_encode($responseContent))->setStatusCode(Response::HTTP_OK);
     }
 
     #[Route('/api/reset-password', name: 'resetPassword', methods: ['POST'])]
@@ -292,8 +337,18 @@ class RegistrationController extends AbstractController
                 response: 200,
                 description: 'OK',
                 content: new OA\JsonContent(
-                    type: 'array',
-                    items: new OA\Items(ref: new Model(type: User::class, groups: ['getUser']))
+                    type: 'object',
+                    properties: [
+                        new OA\Property(
+                            property: 'message',
+                            type: 'string',
+                        ),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            ref: new Model(type: User::class, groups: ['getUser'])
+                        )
+                    ]
                 )
             )
         ]
@@ -343,7 +398,12 @@ class RegistrationController extends AbstractController
         // If checkOnly => Stop process
         if (isset($content['checkOnly'])) {
             $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
-            return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_OK);
+            $responseContent = [
+                'message' => 'Adresse email valide.',
+                'data' => json_decode($jsonUser, true), // Convertir en tableau pour encapsuler dans la réponse.
+            ];
+    
+            return JsonResponse::fromJsonString(json_encode($responseContent))->setStatusCode(Response::HTTP_OK);
         }
 
         if (!isset($content['password'])) {
@@ -373,7 +433,12 @@ class RegistrationController extends AbstractController
 
         $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
         
-        return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_OK);
+        $responseContent = [
+            'message' => 'Mot de passe réinitialisé avec succès.',
+            'data' => json_decode($jsonUser, true), // Convertir en tableau pour encapsuler dans la réponse.
+        ];
+
+        return JsonResponse::fromJsonString(json_encode($responseContent))->setStatusCode(Response::HTTP_OK);
     }
 
     #[Route('/api/resend-validation-email/{id}', name: 'resendValidationEmail', methods: ['GET'])]
@@ -385,9 +450,19 @@ class RegistrationController extends AbstractController
             new OA\Response(
                 response: 200,
                 description: 'OK',
-                content: new OA\JsonContent(
-                    type: 'array',
-                    items: new OA\Items(ref: new Model(type: User::class, groups: ['getUser']))
+                content: new OA\JsonContent( 
+                    type: 'object',
+                    properties: [
+                        new OA\Property(
+                            property: 'message',
+                            type: 'string',
+                        ),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            ref: new Model(type: User::class, groups: ['getUser'])
+                        )
+                    ]
                 )
             )
         ]
@@ -429,6 +504,11 @@ class RegistrationController extends AbstractController
         
         $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
         
-        return JsonResponse::fromJsonString($jsonUser)->setStatusCode(Response::HTTP_OK);
+        $responseContent = [
+            'message' => 'Email de vérification renvoyé avec succès !',
+            'data' => json_decode($jsonUser, true), // Convertir en tableau pour encapsuler dans la réponse.
+        ];
+
+        return JsonResponse::fromJsonString(json_encode($responseContent))->setStatusCode(Response::HTTP_OK);
     }
 }
