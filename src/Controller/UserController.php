@@ -12,7 +12,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 use JMS\Serializer\SerializerInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
@@ -20,11 +19,18 @@ use Nelmio\ApiDocBundle\Annotation\Model;
 use OpenApi\Attributes as OA;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use App\Attribute\Description;
+use App\Attribute\AccessMethods;
 
+#[Description('Utilisateurs')]
+#[AccessMethods(
+    readMethods: ['getUsers', 'getUserDetails'],
+    writeMethods: ['createUser', 'updateUser', 'editUserPassword', 'deleteUser']
+)]
 class UserController extends AbstractController
 {
-    #[Route('/api/users', name: 'usersList', methods: ['GET'])]
-    #[IsGranted('ROLE_USER', message: 'Vous n\'avez pas les droits suffisants pour accéder à ces données')]
+    #[Route('/api/users', name: 'getUsers', methods: ['GET'])]
+    #[Description('Liste utilisateurs')]
     #[OA\Get(
         path: '/api/users',
         tags: ['User'],
@@ -150,7 +156,8 @@ class UserController extends AbstractController
         return new JsonResponse(json_encode($responseContent), Response::HTTP_OK, [], true);
     }
 
-    #[Route('/api/users/{id}', name: 'getUser', methods: ['GET'])]
+    #[Route('/api/users/{id}', name: 'getUserDetails', methods: ['GET'])]
+    #[Description('Détails utilisateur')]
     #[OA\Get(
         path: '/api/users/{id}',
         tags: ['User'],
@@ -195,6 +202,7 @@ class UserController extends AbstractController
    
 
     #[Route('/api/users', name: 'createUser', methods: ['POST'])]
+    #[Description('Créer utilisateur')]
     #[OA\Post(
         path: '/api/users',
         tags: ['User'],
@@ -260,6 +268,7 @@ class UserController extends AbstractController
 
 
     #[Route('/api/users/{id}', name: 'updateUser', methods: ['PUT'])]
+    #[Description('Modifier utilisateur')]
     #[OA\Put(
         path: '/api/users/{id}',
         tags: ['User'],
@@ -335,6 +344,7 @@ class UserController extends AbstractController
 
 
     #[Route('/api/users/{id}/edit-password', name: 'editUserPassword', methods: ['POST'])]
+    #[Description('Modifier mot de passe utilisateur')]
     #[OA\Post(
         path: '/api/users/{id}/edit-password',
         tags: ['User'],
@@ -414,6 +424,7 @@ class UserController extends AbstractController
 
 
     #[Route('/api/users/{id}', name: 'deleteUser', methods: ['DELETE'])]
+    #[Description('Supprimer utilisateur')]
     #[OA\Delete(
         path: '/api/users/{id}',
         tags: ['User'],

@@ -6,6 +6,7 @@
 parameters:
   symfony_app_url: "%env(SYMFONY_APP_URL)%"
   target_app_url: "%env(TARGET_APP_URL)%"
+  role_permissions_mode: "%env(ROLE_PERMISSIONS_MODE)%"
 
 services:
   # default configuration for services in *this* file
@@ -53,6 +54,10 @@ services:
   App\Service\QueryParameterService:
     tags:
       - { name: service.query_parameter }
+
+  App\Service\ControllerScanner:
+    arguments:
+      $kernel: "@kernel"
 
   annotation_reader:
     class: Doctrine\Common\Annotations\AnnotationReader
