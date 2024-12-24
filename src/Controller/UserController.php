@@ -67,12 +67,6 @@ class UserController extends AbstractController
                 schema: new OA\Schema(type: "string")
             ),
             new OA\Parameter(
-                name: "email",
-                description: "email search",
-                in: "query",
-                schema: new OA\Schema(type: "string")
-            ),
-            new OA\Parameter(
                 name: "is_verified",
                 description: "is_verified search",
                 in: "query",
@@ -190,6 +184,15 @@ class UserController extends AbstractController
     )]
     public function getUserDetails(User $user, SerializerInterface $serializer): JsonResponse
     {
+        if (in_array('ROLE_SUPERADMIN', $user->getRoles(), true)) {
+            return new JsonResponse(
+                $serializer->serialize(['message' => "Opération interdite sur cet utilisateur."], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
         $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
             
         $responseContent = [
@@ -305,6 +308,15 @@ class UserController extends AbstractController
     )]
     public function updateUser(User $currentUser, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse
     {
+        if (in_array('ROLE_SUPERADMIN', $currentUser->getRoles(), true)) {
+            return new JsonResponse(
+                $serializer->serialize(['message' => "Opération interdite sur cet utilisateur."], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
         $updatedUser = $serializer->deserialize(
             $request->getContent(), 
             User::class, 
@@ -385,6 +397,15 @@ class UserController extends AbstractController
     )]
     public function editUserPassword(User $user, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, UserPasswordHasherInterface $passwordHasher): Response
     {
+        if (in_array('ROLE_SUPERADMIN', $user->getRoles(), true)) {
+            return new JsonResponse(
+                $serializer->serialize(['message' => "Opération interdite sur cet utilisateur."], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+
         $content = $serializer->deserialize($request->getContent(), 'array', 'json');
 
         if (!isset($content['newPassword'])) {
@@ -441,9 +462,17 @@ class UserController extends AbstractController
         description: 'User id to delete',
         in: 'path',
     )]
-    public function deleteUser(User $user, EntityManagerInterface $em, TagAwareCacheInterface $cache): JsonResponse
+    public function deleteUser(User $user, EntityManagerInterface $em, SerializerInterface $serializer, TagAwareCacheInterface $cache): JsonResponse
     {
-
+        if (in_array('ROLE_SUPERADMIN', $user->getRoles(), true)) {
+            return new JsonResponse(
+                $serializer->serialize(['message' => "Opération interdite sur cet utilisateur."], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
+        
         $cache->invalidateTags(['usersCache']);
         $em->remove($user);
         $em->flush();

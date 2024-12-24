@@ -7,93 +7,105 @@ use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use App\Attribute\Description;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
-
+/* Récupère la liste des actions des Controllers, sous forme de tableau :
+- Si mode=read-write : [Controller => ['description' => '', 'actions' => ['read' => [action1 => ['description' => '', 'action' => ''], action2 => []], 'write' => [action3 => [], action4 => []]]]]
+- Si mode=actions : [Controller => ['description' => '', 'actions' => [action1 => ['description' => '', 'action' => ''], action2 => []]]]
+ */
 class ControllerScanner
 {
     private KernelInterface $kernel;
     private ParameterBagInterface $params;
+    private TagAwareCacheInterface $cache;
 
-    public function __construct(KernelInterface $kernel, ParameterBagInterface $params)
+    public function __construct(KernelInterface $kernel, ParameterBagInterface $params, TagAwareCacheInterface $cache)
     {
         $this->kernel = $kernel;
         $this->params = $params;
+        $this->cache = $cache;
     }
 
 
+    /* Essaie de récupérer la liste dans le cache. Si pas disponible, relance l'opération complète */
     public function getControllersAndActions(): array
     {
-        $controllers = [];
-        $controllerDir = $this->kernel->getProjectDir() . '/src/Controller';
-        $namespace = 'App\Controller';
         $mode = $this->params->get('role_permissions_mode');
+        $controllersAndActions = $this->cache->get('getControllersAndActions-' . $mode, function (ItemInterface $item) use ($mode) {
+            $item->tag("controllersAndActions");
 
-        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($controllerDir));     
+            $controllers = [];
+            $controllerDir = $this->kernel->getProjectDir() . '/src/Controller';
+            $namespace = 'App\Controller';
 
-        foreach ($files as $file) {
+            $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($controllerDir));     
 
-            if ($file->isFile() && $file->getExtension() === 'php') {
-                $className = $namespace . '\\' . str_replace(
-                    '/',
-                    '\\',
-                    substr($file->getPathname(), strlen($controllerDir) + 1, -4)
-                );
+            foreach ($files as $file) {
 
-                if (class_exists($className)) {
-                    $reflectionClass = new \ReflectionClass($className);
+                if ($file->isFile() && $file->getExtension() === 'php') {
+                    $className = $namespace . '\\' . str_replace(
+                        '/',
+                        '\\',
+                        substr($file->getPathname(), strlen($controllerDir) + 1, -4)
+                    );
 
-                    if ($reflectionClass->isSubclassOf('Symfony\Bundle\FrameworkBundle\Controller\AbstractController')) {
-                        $controllerDescription = $this->getControllerDescription($reflectionClass);
-                        if (!$controllerDescription) continue; // Description de Controller obligatoire pour l'ajouter à la liste
+                    if (class_exists($className)) {
+                        $reflectionClass = new \ReflectionClass($className);
 
-                        $controller = [
-                            'description' => $controllerDescription,
-                            'actions' => []
-                        ];
+                        if ($reflectionClass->isSubclassOf('Symfony\Bundle\FrameworkBundle\Controller\AbstractController')) {
+                            $controllerDescription = $this->getControllerDescription($reflectionClass);
+                            if (!$controllerDescription) continue; // Description de Controller obligatoire pour l'ajouter à la liste
 
-                        // Si mode lecture/écriture
-                        if ($mode === "read-write") {
-                            $accessMethods = $this->getAccessMethods($reflectionClass);
-                            if (is_null($accessMethods)) continue; // Attribut obligatoire
+                            $controller = [
+                                'description' => $controllerDescription,
+                                'actions' => []
+                            ];
 
-                            $controller['actions'] = ['read' => [], 'write' => []];
-                        }
+                            // Si mode lecture/écriture
+                            if ($mode === "read-write") {
+                                $accessMethods = $this->getAccessMethods($reflectionClass);
+                                if (is_null($accessMethods)) continue; // Attribut obligatoire
 
-                        foreach ($reflectionClass->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
-                            if ($this->isAction($method)) {
-                                $accessMode = null;
-                                // Si mode lecture/écriture
-                                if ($mode === "read-write") {
-                                    if (in_array($method->getName(), $accessMethods['write'])) {
-                                        $accessMode = 'write';
-                                    } else if (in_array($method->getName(), $accessMethods['read'])) {
-                                        $accessMode = 'read';
+                                $controller['actions'] = ['read' => [], 'write' => []];
+                            }
+
+                            foreach ($reflectionClass->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+                                if ($this->isAction($method)) {
+                                    $accessMode = null;
+                                    // Si mode lecture/écriture
+                                    if ($mode === "read-write") {
+                                        if (in_array($method->getName(), $accessMethods['write'])) {
+                                            $accessMode = 'write';
+                                        } else if (in_array($method->getName(), $accessMethods['read'])) {
+                                            $accessMode = 'read';
+                                        }
+                                        if (is_null($accessMode)) continue;
+                                    } 
+
+                                    $action = [
+                                        'action' => $method->getName(),
+                                        'description' => $this->getMethodDescription($method)
+                                    ];
+                                    if ($accessMode) {
+                                        $controller['actions'][$accessMode][] = $action;
+                                    } else {
+                                        $controller['actions'][] = $action;
                                     }
-                                    if (is_null($accessMode)) continue;
-                                } 
-
-                                $action = [
-                                    'action' => $method->getName(),
-                                    'description' => $this->getMethodDescription($method),
-                                    'route' => $this->getRoute($method)
-                                ];
-                                if ($accessMode) {
-                                    $controller['actions'][$accessMode][] = $action;
-                                } else {
-                                    $controller['actions'][] = $action;
                                 }
                             }
+                            if (!empty($controller['actions']) || ($mode === 'read-write' && (!empty($controller['actions']['read']) || !empty($controller['actions']['write'])))) {
+                                $controllers[$className] = $controller;
+                            } 
                         }
-                        if (!empty($controller['actions']) || ($mode === 'read-write' && (!empty($controller['actions']['read']) || !empty($controller['actions']['write'])))) {
-                            $controllers[$className] = $controller;
-                        } 
                     }
                 }
             }
-        }
 
+            return $controllers;
+        });
 
-        return $controllers;
+        return $controllersAndActions;
     }
 
 
@@ -113,22 +125,6 @@ class ControllerScanner
         }
 
         return null;
-    }
-
-
-    private function getRoute(\ReflectionMethod $method): ?array
-    {
-        foreach ($method->getAttributes(Route::class) as $attribute) {
-            /** @var Route $route */
-            $route = $attribute->newInstance();
-            return [
-                'path' => $route->getPath(),
-                'name' => $route->getName(),
-                'methods' => $route->getMethods(),
-            ];
-        }
-    
-        return null; // Retourne null si aucune route n'est trouvée
     }
 
 
