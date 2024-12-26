@@ -21,6 +21,7 @@ use App\Attribute\ActionMetadata;
 use App\Attribute\AccessMethods;
 use App\Entity\Role;
 use App\Repository\RoleRepository;
+use Symfony\Component\String\Slugger\AsciiSlugger;
 
 #[ControllerMetadata(alias: "roles", description: 'Rôles')]
 #[AccessMethods(
@@ -210,8 +211,14 @@ class RoleController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
 
+        // Formatage id pour avoir une forme ROLE_ID
+        $slugger = new AsciiSlugger();
+        $id = $slugger->slug($data['id'])->toString();
+        $id = str_replace('-', '_', $id);
+        $id = "ROLE_" . strtoupper($id);
+
         $role = new Role();
-        $role->setId($data['id']);
+        $role->setId($id);
         $role->setDescription($data['description']);
 
         $errors = $validator->validate($role);
