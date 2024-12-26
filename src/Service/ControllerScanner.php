@@ -6,7 +6,8 @@ use App\Attribute\AccessMethods;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Routing\Attribute\Route;
-use App\Attribute\Description;
+use App\Attribute\ActionMetadata;
+use App\Attribute\ControllerMetadata;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
@@ -55,10 +56,12 @@ class ControllerScanner
 
                         if ($reflectionClass->isSubclassOf('Symfony\Bundle\FrameworkBundle\Controller\AbstractController')) {
                             $controllerDescription = $this->getControllerDescription($reflectionClass);
+                            $controllerAlias = $this->getControllerAlias($reflectionClass);
                             if (!$controllerDescription) continue; // Description de Controller obligatoire pour l'ajouter à la liste
 
                             $controller = [
                                 'description' => $controllerDescription,
+                                'alias' => $controllerAlias,
                                 'actions' => []
                             ];
 
@@ -85,7 +88,8 @@ class ControllerScanner
 
                                     $action = [
                                         'action' => $method->getName(),
-                                        'description' => $this->getMethodDescription($method)
+                                        'description' => $this->getMethodDescription($method),
+                                        'alias' => $this->getMethodAlias($method)
                                     ];
                                     if ($accessMode) {
                                         $controller['actions'][$accessMode][] = $action;
@@ -120,8 +124,9 @@ class ControllerScanner
 
     private function getMethodDescription(\ReflectionMethod $method): ?string
     {
-        foreach ($method->getAttributes(Description::class) as $attribute) {
-            return $attribute->newInstance()->text;
+        foreach ($method->getAttributes(ActionMetadata::class) as $attribute) {
+            $actionMetadata = $attribute->newInstance();
+            return $actionMetadata->getDescription();
         }
 
         return null;
@@ -130,8 +135,31 @@ class ControllerScanner
 
     private function getControllerDescription(\ReflectionClass $class): ?string
     {
-        foreach ($class->getAttributes(Description::class) as $attribute) {
-            return $attribute->newInstance()->text;
+        foreach ($class->getAttributes(ControllerMetadata::class) as $attribute) {
+            $controllerMetadata = $attribute->newInstance();
+            return $controllerMetadata->getDescription();
+        }
+
+        return null;
+    }
+
+
+    private function getMethodAlias(\ReflectionMethod $method): ?string
+    {
+        foreach ($method->getAttributes(ActionMetadata::class) as $attribute) {
+            $actionMetadata = $attribute->newInstance();
+            return $actionMetadata->getAlias();
+        }
+
+        return null;
+    }
+
+
+    private function getControllerAlias(\ReflectionClass $class): ?string
+    {
+        foreach ($class->getAttributes(ControllerMetadata::class) as $attribute) {
+            $controllerMetadata = $attribute->newInstance();
+            return $controllerMetadata->getAlias();
         }
 
         return null;

@@ -16,12 +16,13 @@ use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use Nelmio\ApiDocBundle\Annotation\Model;
 use OpenApi\Attributes as OA;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
-use App\Attribute\Description;
+use App\Attribute\ControllerMetadata;
+use App\Attribute\ActionMetadata;
 use App\Attribute\AccessMethods;
 use App\Entity\Role;
 use App\Repository\RoleRepository;
 
-#[Description('Rôles')]
+#[ControllerMetadata(alias: "roles", description: 'Rôles')]
 #[AccessMethods(
     readMethods: ['getRoles', 'getRoleDetails'],
     writeMethods: ['createRole', 'updateRole']
@@ -29,7 +30,7 @@ use App\Repository\RoleRepository;
 class RoleController extends AbstractController
 {
     #[Route('/api/roles', name: 'getRoles', methods: ['GET'])]
-    #[Description('Liste rôles')]
+    #[ActionMetadata(alias: "rolesList", description: 'Liste rôles')]
     #[OA\Get(
         path: '/api/roles',
         tags: ['Role'],
@@ -121,7 +122,7 @@ class RoleController extends AbstractController
     }
 
     #[Route('/api/roles/{id}', name: 'getRoleDetails', methods: ['GET'])]
-    #[Description('Détails rôle')]
+    #[ActionMetadata(alias: "roleDetails", description: 'Détails rôle')]
     #[OA\Get(
         path: '/api/roles/{id}',
         tags: ['Role'],
@@ -175,7 +176,7 @@ class RoleController extends AbstractController
    
 
     #[Route('/api/roles', name: 'createRole', methods: ['POST'])]
-    #[Description('Créer rôle')]
+    #[ActionMetadata(alias: "newRole", description: 'Créer rôle')]
     #[OA\Post(
         path: '/api/roles',
         tags: ['Role'],
@@ -239,7 +240,7 @@ class RoleController extends AbstractController
 
 
     #[Route('/api/roles/{id}', name: 'updateRole', methods: ['PUT'])]
-    #[Description('Modifier rôle')]
+    #[ActionMetadata(alias: "roleEdit", description: 'Modifier rôle')]
     #[OA\Put(
         path: '/api/roles/{id}',
         tags: ['Role'],

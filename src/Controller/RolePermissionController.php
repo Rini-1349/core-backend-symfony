@@ -11,7 +11,8 @@ use JMS\Serializer\SerializerInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use Nelmio\ApiDocBundle\Annotation\Model;
 use OpenApi\Attributes as OA;
-use App\Attribute\Description;
+use App\Attribute\ControllerMetadata;
+use App\Attribute\ActionMetadata;
 use App\Attribute\AccessMethods;
 use App\Entity\Role;
 use App\Entity\RolePermission;
@@ -19,7 +20,7 @@ use App\Repository\RolePermissionRepository;
 use App\Service\ControllerScanner;
 use App\Service\RolePermissionsService;
 
-#[Description('Permissions Rôle')]
+#[ControllerMetadata(alias: "rolePermissions", description: 'Permissions Rôle')]
 #[AccessMethods(
     readMethods: ['getRolePermissions'],
     writeMethods: ['updateRolePermissions']
@@ -27,7 +28,7 @@ use App\Service\RolePermissionsService;
 class RolePermissionController extends AbstractController
 {
     #[Route('/api/roles/{id}/permissions', name: 'getRolePermissions', methods: ['GET'])]
-    #[Description('Liste permissions rôles')]
+    #[ActionMetadata(alias: "rolePermissionsList", description: 'Liste permissions rôles')]
     #[OA\Get(
         path: '/api/roles/{id}/permissions',
         tags: ['RolePermission'],
@@ -65,17 +66,20 @@ class RolePermissionController extends AbstractController
         // - En mode "actions" : [Controller => ['description' => '', 'permissions' => [action1, action2, etc.]]
         // - En mode "read-write" : [Controller => ['description' => '', 'actions'  => [], 'read' => ['is_authoried' => true], 'write' => ['is_authorized' => true]]]
         $rolePermissionsByControllers = $rolePermissionsService->getRolePermissionsByControllers($role->getId(), $roleTruePermissions);
+        // - En mode "actions" : [ControllerAlias => ['description' => '', 'actions' => [action1Alias => ['is_authorized' => true/false 'description' => ''], etc.]]
+        // - En mode "read-write" : [ControllerAlias => ['description' => '', 'actions'  => ['read' => ['is_authorized' => true], 'write' => ['is_authorized' => false]]]
+        $aliasesRolePermissions = $rolePermissionsService->formatControllersAndActionsIntoAliases($rolePermissionsByControllers);
 
         $responseContent = [
-            'message' => "Liste des permissions du rôles récupérée.",
-            'data' => ['role' => $role, 'rolePermissionsByControllers' => $rolePermissionsByControllers],
+            'message' => "Liste des permissions du rôle récupérée.",
+            'data' => ['role' => $role, 'rolePermissions' => $aliasesRolePermissions],
         ];
 
         return new JsonResponse(json_encode($responseContent), Response::HTTP_OK, [], true);
     }
 
     #[Route('/api/roles/{id}/permissions', name: 'updateRolePermissions', methods: ['POST'])]
-    #[Description('Modifier permissions rôle')]
+    #[ActionMetadata(alias: "rolePermissionsEdit", description: 'Modifier permissions rôle')]
     #[OA\Post(
         path: '/api/roles/{id}/permissions',
         tags: ['RolePermission'],
@@ -117,7 +121,7 @@ class RolePermissionController extends AbstractController
                     type: 'boolean'
                 )
             ),
-            example: '{"*actions mode expectations:*App\\\\Controller\\\\UserController":{"getUsers":true, "deleteUser":false},"*read-write mode expectations:*App\\\\Controller\\\\UserController":{"read":true,"write":false}}'
+            example: '{"*actions mode expectations:*users":{"usersList":true, "removeUser":false},"*read-write mode expectations:*users":{"read":true,"write":false}}'
         )
     )]
     public function updateRolePermissions(Role $role, Request $request, SerializerInterface $serializer, RolePermissionsService $rolePermissionsService, RolePermissionRepository $rolePermissionRepository, ControllerScanner $controllerScanner, TagAwareCacheInterface $cache): JsonResponse
@@ -133,7 +137,7 @@ class RolePermissionController extends AbstractController
 
         $data = $serializer->deserialize($request->getContent(), 'array', 'json');
 
-        if ($errorMessage = $rolePermissionsService->rolePermissionsDataHasFormatError($data)) {
+        if ($errorMessage = $rolePermissionsService->hasRolePermissionsDataFormatError($data)) {
             return new JsonResponse(
                 $serializer->serialize($errorMessage, 'json'),
                 JsonResponse::HTTP_BAD_REQUEST,
@@ -158,7 +162,10 @@ class RolePermissionController extends AbstractController
         $controllersAndActions = $controllerScanner->getControllersAndActions();
         $usedPermissions = [];
         
-        foreach ($data as $controller => $controllerData) {
+        // Replace controllers and actions aliases (ex: "users" becomes "App\Controller\UserController")
+        $formattedDataFromAliases = $rolePermissionsService->formatDataFromAliases($data, $controllersAndActions);
+
+        foreach ($formattedDataFromAliases as $controller => $controllerData) {
             $controllerPermissionsByActions = $rolePermissionsService->getControllerPermissionsByActions($controllerData, $controller, $controllersAndActions);
     
             foreach ($controllerPermissionsByActions as $action => $isAuthorized) {

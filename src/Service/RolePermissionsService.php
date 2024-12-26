@@ -2,7 +2,6 @@
 
 namespace App\Service;
 
-use App\Entity\RolePermission;
 use App\Repository\RolePermissionRepository;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Contracts\Cache\ItemInterface;
@@ -26,7 +25,6 @@ class RolePermissionsService
     /* Récupère les permissions true d'un rôle sous forme [Controller1 => [0 => action1, 1 => action2, etc.], Controller2 => [etc.]] */
     public function getRoleTruePermissions($roleId): array 
     {
-
         $cacheKey = "role-" . $roleId;
         $rolePermissionsList = $this->cache->get($cacheKey, function (ItemInterface $item) use ($roleId) {
             $item->tag("rolePermissionsCache");
@@ -118,7 +116,8 @@ class RolePermissionsService
         return $controllerPermissionsByActions;
     }
 
-    public function rolePermissionsDataHasFormatError($data) {
+    /* Check if rolePermissions data have the right format */
+    public function hasRolePermissionsDataFormatError($data) {
         if (!is_array($data)) {
             return ['message' => 'Format JSON invalide.'];
         }
@@ -140,5 +139,130 @@ class RolePermissionsService
         }
 
         return false;
+    }
+
+    /* Get controller alias using $controllersAndActions array */
+    public function getControllerAlias($controllersAndActions, $controller): string 
+    {
+        if (isset($controllersAndActions[$controller]) && isset($controllersAndActions[$controller]['alias'])) {
+            return $controllersAndActions[$controller]['alias'];
+        }
+
+        return "";
+    }
+
+    /* Get controller name (frome alias) using $controllersAndActions array */
+    public function getControllerName($controllersAndActions, $controllerAlias): string 
+    {
+        foreach ($controllersAndActions as $controllerName => $controllerDetails) {
+            if (isset($controllerDetails['alias']) && $controllerDetails['alias'] === $controllerAlias) {
+                return $controllerName;
+            }
+        }
+
+        return "";
+    }
+
+    /* Get action alias using $controllersAndActions[controller]['actions'] array */
+    public function getActionAlias($controllerActions, $action, $mode = "actions"): string 
+    {
+        $alias = "";
+        if ($mode !== 'read-write') {
+            foreach ($controllerActions as $controllerActionDetails) {
+                if ($controllerActionDetails['action'] === $action) {
+                    $alias = $controllerActionDetails['alias'];
+                    break;
+                }
+            }
+        } else {
+            foreach (['read', 'write'] as $accessMode) {
+                if (isset($controllerActions[$accessMode])) {
+                    foreach ($controllerActions[$accessMode] as $controllerActionDetails) {
+                        if ($controllerActionDetails['action'] === $action) {
+                            $alias = $controllerActionDetails['alias'];
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $alias;
+    }
+
+    /* Get action name (frome alias) using $controllersAndActions[controller]['actions'] array */
+    public function getActionName($controllerActions, $actionAlias, $mode = "actions"): string 
+    {
+        if ($mode === "read-write") {
+            return $actionAlias;
+        }
+
+        foreach ($controllerActions as $controllerActionDetails) {
+            if ($controllerActionDetails['alias'] === $actionAlias) {
+                return $controllerActionDetails['action'];
+            }
+        }
+
+        return "";
+    }
+
+    /* Format rolePermissions into aliases */
+    public function formatControllersAndActionsIntoAliases(array $rolePermissionsByControllers): array 
+    {
+        $mode = $this->params->get('role_permissions_mode');
+       
+        $aliasesRolePermissions = [];
+        foreach ($rolePermissionsByControllers as $controller => $controllerPermissions) {
+            if (isset($controllerPermissions['alias']) &&isset($controllerPermissions['description']) && isset($controllerPermissions['actions'])) {
+                $actionsAliases = [];
+                foreach ($controllerPermissions['actions'] as $action) {
+                    if ($mode !== 'read-write') {
+                        $isAuthorized = isset($controllerPermissions['permissions']) && in_array($action['action'], $controllerPermissions['permissions']);
+                        $actionsAliases[$action['alias']] = [
+                            'is_authorized' => $isAuthorized,
+                            'description' => $action['description']
+                        ];
+                    } else {
+                        foreach (['read', 'write'] as $accessMode) {
+                            $isAuthorized = isset($controllerPermissions[$accessMode]) && isset($controllerPermissions[$accessMode]['is_authorized']) && $controllerPermissions[$accessMode]['is_authorized'] === true;
+                            $actionsAliases[$accessMode] = [
+                                'is_authorized' => $isAuthorized
+                            ];
+                        }
+                        
+                    }
+                }
+                $aliasesRolePermissions[$controllerPermissions['alias']] = [
+                    'description' => $controllerPermissions['description'],
+                    'actions' => $actionsAliases
+                ];
+            }
+        }
+
+        return $aliasesRolePermissions;
+    }
+
+    /* Format rolePermissions data : replace controllers and actions aliases (ex: "users" becomes "App\Controller\UserController") */
+    public function formatDataFromAliases(array $data, array $controllersAndActions): array 
+    {
+        $mode = $this->params->get('role_permissions_mode');
+       
+        $formattedDataFromAliases = [];
+        foreach ($data as $controllerAlias => $actions) {
+            $controllerName = $this->getControllerName($controllersAndActions, $controllerAlias);
+            $actionsAliases = [];
+            if ($mode !== 'read-write') {
+                foreach ($actions as $actionAlias => $isAuthorized) {
+                    $actionName = $this->getActionName($controllersAndActions[$controllerName]['actions'], $actionAlias);
+                    $actionsAliases[$actionName] = $isAuthorized;
+                }
+            } else {
+                $actionsAliases = $actions;
+            }
+            
+            $formattedDataFromAliases[$controllerName] = $actionsAliases;
+        }
+
+        return $formattedDataFromAliases;
     }
 }

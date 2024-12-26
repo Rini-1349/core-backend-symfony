@@ -19,10 +19,11 @@ use Nelmio\ApiDocBundle\Annotation\Model;
 use OpenApi\Attributes as OA;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use App\Attribute\Description;
+use App\Attribute\ControllerMetadata;
+use App\Attribute\ActionMetadata;
 use App\Attribute\AccessMethods;
 
-#[Description('Utilisateurs')]
+#[ControllerMetadata(alias: "users", description: 'Utilisateurs')]
 #[AccessMethods(
     readMethods: ['getUsers', 'getUserDetails'],
     writeMethods: ['createUser', 'updateUser', 'editUserPassword', 'deleteUser']
@@ -30,7 +31,7 @@ use App\Attribute\AccessMethods;
 class UserController extends AbstractController
 {
     #[Route('/api/users', name: 'getUsers', methods: ['GET'])]
-    #[Description('Liste utilisateurs')]
+    #[ActionMetadata(alias: "usersList", description: 'Liste utilisateurs')]
     #[OA\Get(
         path: '/api/users',
         tags: ['User'],
@@ -151,7 +152,7 @@ class UserController extends AbstractController
     }
 
     #[Route('/api/users/{id}', name: 'getUserDetails', methods: ['GET'])]
-    #[Description('Détails utilisateur')]
+    #[ActionMetadata(alias: "userDetails", description: 'Détails utilisateur')]
     #[OA\Get(
         path: '/api/users/{id}',
         tags: ['User'],
@@ -205,7 +206,7 @@ class UserController extends AbstractController
    
 
     #[Route('/api/users', name: 'createUser', methods: ['POST'])]
-    #[Description('Créer utilisateur')]
+    #[ActionMetadata(alias: "newUser", description: 'Créer utilisateur')]
     #[OA\Post(
         path: '/api/users',
         tags: ['User'],
@@ -271,7 +272,7 @@ class UserController extends AbstractController
 
 
     #[Route('/api/users/{id}', name: 'updateUser', methods: ['PUT'])]
-    #[Description('Modifier utilisateur')]
+    #[ActionMetadata(alias: "userEdit", description: 'Modifier utilisateur')]
     #[OA\Put(
         path: '/api/users/{id}',
         tags: ['User'],
@@ -356,7 +357,7 @@ class UserController extends AbstractController
 
 
     #[Route('/api/users/{id}/edit-password', name: 'editUserPassword', methods: ['POST'])]
-    #[Description('Modifier mot de passe utilisateur')]
+    #[ActionMetadata(alias: "userEditPassword", description: 'Modifier mot de passe utilisateur')]
     #[OA\Post(
         path: '/api/users/{id}/edit-password',
         tags: ['User'],
@@ -445,7 +446,7 @@ class UserController extends AbstractController
 
 
     #[Route('/api/users/{id}', name: 'deleteUser', methods: ['DELETE'])]
-    #[Description('Supprimer utilisateur')]
+    #[ActionMetadata(alias: "removeUser", description: 'Supprimer utilisateur')]
     #[OA\Delete(
         path: '/api/users/{id}',
         tags: ['User'],

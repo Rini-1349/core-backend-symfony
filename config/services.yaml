@@ -40,6 +40,10 @@ services:
     tags:
       - { name: "kernel.event_listener", event: "lexik_jwt_authentication.on_authentication_failure", method: "onAuthenticationFailure" }
 
+  App\EventListener\UserAccessListener:
+    tags:
+      - { name: kernel.event_listener, event: kernel.controller, priority: 10 }
+
   App\Security\Voter\EmailVerifiedVoter:
     tags:
       - { name: security.voter }
@@ -62,6 +66,8 @@ services:
   App\Service\QueryHelper: ~
 
   App\Service\RolePermissionsService: ~
+
+  App\Service\UserPermissionsService: ~
 
   annotation_reader:
     class: Doctrine\Common\Annotations\AnnotationReader
