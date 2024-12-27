@@ -19,6 +19,7 @@ use App\Entity\RolePermission;
 use App\Repository\RolePermissionRepository;
 use App\Service\ControllerScanner;
 use App\Service\RolePermissionsService;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 #[ControllerMetadata(alias: "rolePermissions", description: 'Permissions Rôle')]
 #[AccessMethods(
@@ -46,8 +47,7 @@ class RolePermissionController extends AbstractController
                         ),
                         new OA\Property(
                             property: 'data',
-                            type: 'object',
-                            ref: new Model(type: Role::class, groups: ['getRolePermissions'])
+                            type: 'object'
                         )
                     ]
                 )
@@ -59,7 +59,7 @@ class RolePermissionController extends AbstractController
         description: 'Role id to get permissions',
         in: 'path',
     )]
-    public function getRolePermissions(Role $role, RolePermissionsService $rolePermissionsService, TagAwareCacheInterface $cache): JsonResponse
+    public function getRolePermissions(Role $role, RolePermissionsService $rolePermissionsService, TagAwareCacheInterface $cache, ParameterBagInterface $params): JsonResponse
     {
         // Récupère les permissions true d'un rôle sous forme [Controller1 => [0 => action1, 1 => action2, etc.], Controller2 => [etc.]]
         $roleTruePermissions = $rolePermissionsService->getRoleTruePermissions($role->getId());
@@ -72,7 +72,10 @@ class RolePermissionController extends AbstractController
 
         $responseContent = [
             'message' => "Liste des permissions du rôle récupérée.",
-            'data' => ['role' => $role, 'rolePermissions' => $aliasesRolePermissions],
+            'data' => [
+                'rolePermissionsMode' => $params->get('role_permissions_mode'), 
+                'role' => ['description' => $role->getDescription()], 
+                'rolePermissions' => $aliasesRolePermissions],
         ];
 
         return new JsonResponse(json_encode($responseContent), Response::HTTP_OK, [], true);
@@ -98,7 +101,7 @@ class RolePermissionController extends AbstractController
                         new OA\Property(
                             property: 'data',
                             type: 'object',
-                            ref: new Model(type: Role::class, groups: ['getRole'])
+                            ref: new Model(type: Role::class, groups: ['getRoleDescription'])
                         )
                     ]
                 )
@@ -206,7 +209,7 @@ class RolePermissionController extends AbstractController
 
         $responseContent = [
             'message' => "Permissions du rôle modifiées avec succès.",
-            'data' => $role,
+            'data' => ['description' => $role->getDescription()],
         ];
 
         return JsonResponse::fromJsonString(json_encode($responseContent))->setStatusCode(Response::HTTP_OK);
