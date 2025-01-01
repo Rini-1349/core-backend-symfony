@@ -39,6 +39,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $email = null;
 
     #[ORM\Column(type: 'json')]
+    #[Groups(["getUserRoles"])]
     private array $roles = [];
 
     #[ORM\Column(length: 255)]
@@ -73,7 +74,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $firstname = null;
 
     #[ORM\Column]
-    #[Groups(["getUser", "updateUser"])]
+    #[Groups(["getUser", "createUser", "updateUser"])]
     private ?bool $isVerified = false;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
@@ -84,6 +85,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     #[Groups(["getUser"])]
     private ?\DateTimeInterface $updatedAt = null;
+
+    #[Groups(["getUser"])]
+    private array $rolesDescriptions = [];
 
     public function __construct()
     {
@@ -147,18 +151,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getRoles(): array
     {
         $roles = $this->roles;
-        // guarantee every user at least has ROLE_USER
-        $roles[] = 'ROLE_USER';
 
         return array_unique($roles);
     }
 
     public function setRoles(array $roles): self
     {
-        if (empty($roles)) {
-            $roles = ['ROLE_USER'];
-        }
-
         $this->roles = $roles;
 
         return $this;
@@ -246,6 +244,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $this->updatedAt = $updatedAt;
 
+        return $this;
+    }
+
+    public function getRolesDescriptions(): array
+    {
+        return $this->rolesDescriptions;
+    }
+
+    public function setRolesDescriptions(array $rolesDescriptions): self
+    {
+        $this->rolesDescriptions = $rolesDescriptions;
         return $this;
     }
 }

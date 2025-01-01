@@ -22,14 +22,56 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use App\Attribute\ControllerMetadata;
 use App\Attribute\ActionMetadata;
 use App\Attribute\AccessMethods;
+use App\Repository\RoleRepository;
+use App\Service\UserService;
 
 #[ControllerMetadata(alias: "users", description: 'Utilisateurs')]
 #[AccessMethods(
-    readMethods: ['getUsers', 'getUserDetails'],
+    readMethods: ['getUsers', 'getUserDetails', 'getRolesListForUsers'],
     writeMethods: ['createUser', 'updateUser', 'editUserPassword', 'deleteUser']
 )]
 class UserController extends AbstractController
 {
+    #[Route('/api/users/roles', name: 'getRolesListForUsers', methods: ['GET'])]
+    #[ActionMetadata(alias: "rolesListForUsers", description: 'Liste rôles à associer à utilisateur')]
+    #[OA\Get(
+        path: '/api/users/roles',
+        tags: ['User'],
+        summary: 'Get roles list',
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'OK',
+                content: new OA\JsonContent(
+                    type: 'object',
+                    properties: [
+                        new OA\Property(
+                            property: 'message',
+                            type: 'string',
+                            example: 'User list retrieved successfully'
+                        ),
+                        new OA\Property(
+                            property: "roles",
+                            type: "array",
+                            items: new OA\Items(type: "string"),
+                            example: ["ROLE_ADMIN" => "Administrateur", "ROLE_USER" => "Utilisateur"]
+                        )
+                    ]
+                )
+            )
+        ]
+    )]
+    public function getRolesListForUsers(RoleRepository $roleRepository): JsonResponse
+    {
+        $responseContent = [
+            'message' => "Liste des rôles récupérée.",
+            'data' => $roleRepository->findForSelect()
+        ];
+
+        return new JsonResponse(json_encode($responseContent), Response::HTTP_OK, [], true);
+    }
+
+
     #[Route('/api/users', name: 'getUsers', methods: ['GET'])]
     #[ActionMetadata(alias: "usersList", description: 'Liste utilisateurs')]
     #[OA\Get(
@@ -37,6 +79,12 @@ class UserController extends AbstractController
         tags: ['User'],
         summary: 'Get users list',
         parameters: [
+            new OA\Parameter(
+                name: "get_roles",
+                description: "define if we need to get roles list or not",
+                in: "query",
+                schema: new OA\Schema(type: "integer")
+            ),
             new OA\Parameter(
                 name: "page",
                 description: "Page",
@@ -74,6 +122,12 @@ class UserController extends AbstractController
                 schema: new OA\Schema(type: "boolean")
             ),
             new OA\Parameter(
+                name: "roles_descriptions",
+                description: "role_id search",
+                in: "query",
+                schema: new OA\Schema(type: "string")
+            ),
+            new OA\Parameter(
                 name: "email",
                 description: "email search",
                 in: "query",
@@ -105,16 +159,28 @@ class UserController extends AbstractController
                             example: 'User list retrieved successfully'
                         ),
                         new OA\Property(
-                            property: 'data',
-                            type: 'array',
-                            items: new OA\Items(ref: new Model(type: User::class, groups: ['getUser']))
+                            property: "data",
+                            type: "object",
+                            properties: [
+                                new OA\Property(
+                                    property: "users",
+                                    type: "array",
+                                    items: new OA\Items(ref: new Model(type: User::class, groups: ["getUser"]))
+                                ),
+                                new OA\Property(
+                                    property: "roles",
+                                    type: "array",
+                                    items: new OA\Items(type: "string"),
+                                    example: ["ROLE_ADMIN" => "Administrateur", "ROLE_USER" => "Utilisateur"]
+                                )
+                            ]
                         )
                     ]
                 )
             )
         ]
     )]
-    public function getUsers(UserRepository $userRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache, QueryParameterService $queryParameterService): JsonResponse
+    public function getUsers(UserRepository $userRepository, RoleRepository $roleRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache, QueryParameterService $queryParameterService): JsonResponse
     {
         $cache->invalidateTags(['usersCache']);
 
@@ -128,6 +194,8 @@ class UserController extends AbstractController
             'orderBy' => 'id',
             'orderDir' => 'ASC',
             'is_verified' => null,
+            'roles_descriptions' => null,
+            'get_roles' => false
         ];
 
         $params = $queryParameterService->extractParameters($request, $defaultParameters);
@@ -145,7 +213,10 @@ class UserController extends AbstractController
 
         $responseContent = [
             'message' => "Liste des utilisateurs récupérée.",
-            'data' => json_decode($jsonUsersList, true),
+            'data' => [
+                'users' => json_decode($jsonUsersList, true),
+                'roles' => $params['get_roles'] ? $roleRepository->findForSelect() : []
+            ],
         ];
 
         return new JsonResponse(json_encode($responseContent), Response::HTTP_OK, [], true);
@@ -169,9 +240,21 @@ class UserController extends AbstractController
                             type: 'string',
                         ),
                         new OA\Property(
-                            property: 'data',
-                            type: 'object',
-                            ref: new Model(type: User::class, groups: ['getUser'])
+                            property: "data",
+                            type: "object",
+                            properties: [
+                                new OA\Property(
+                                    property: "users",
+                                    type: "array",
+                                    items: new OA\Items(ref: new Model(type: User::class, groups: ["getUser", 'getUserRoles']))
+                                ),
+                                new OA\Property(
+                                    property: "roles",
+                                    type: "array",
+                                    items: new OA\Items(type: "string"),
+                                    example: ["ROLE_ADMIN" => "Administrateur", "ROLE_USER" => "Utilisateur"]
+                                )
+                            ]
                         )
                     ]
                 )
@@ -183,7 +266,7 @@ class UserController extends AbstractController
         description: 'User id to get',
         in: 'path',
     )]
-    public function getUserDetails(User $user, SerializerInterface $serializer): JsonResponse
+    public function getUserDetails(User $user, RoleRepository $roleRepository, SerializerInterface $serializer): JsonResponse
     {
         if (in_array('ROLE_SUPERADMIN', $user->getRoles(), true)) {
             return new JsonResponse(
@@ -194,11 +277,14 @@ class UserController extends AbstractController
             );
         }
 
-        $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
+        $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser', 'getUserRoles']));
             
         $responseContent = [
             'message' => "Informations de l'utilisateur récupérées.",
-            'data' => json_decode($jsonUser, true),
+            'data' => [
+                'user' => json_decode($jsonUser, true),
+                'roles' => $roleRepository->findForSelect()
+            ],
         ];
 
         return JsonResponse::fromJsonString(json_encode($responseContent))->setStatusCode(Response::HTTP_OK);
@@ -225,7 +311,7 @@ class UserController extends AbstractController
                         new OA\Property(
                             property: 'data',
                             type: 'object',
-                            ref: new Model(type: User::class, groups: ['getUser'])
+                            ref: new Model(type: User::class, groups: ['getUser', 'getUserRoles'])
                         )
                     ]
                 )
@@ -233,14 +319,44 @@ class UserController extends AbstractController
         ]
     )]
     #[OA\RequestBody(
-        required : true,
-        content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['createUser', 'password']))
+        required: true,
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(property: 'roles', type: 'array', items: new OA\Items(type: 'string')),
+                new OA\Property(property: 'lastname', type: 'string'),
+                new OA\Property(property: 'firstname', type: 'string'),
+                new OA\Property(property: 'email', type: 'string'),
+                new OA\Property(property: 'password', type: 'string'),
+                new OA\Property(property: 'isVerified', type: 'boolean'),
+            ]
+        )
     )]
-    public function createUser(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, UserPasswordHasherInterface $passwordHasher, TagAwareCacheInterface $cache): JsonResponse
+    public function createUser(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, UserPasswordHasherInterface $passwordHasher, TagAwareCacheInterface $cache, RoleRepository $roleRepository, UserService $userService): JsonResponse
     {
-        $user = $serializer->deserialize($request->getContent(), User::class, 'json');
+        $data = json_decode($request->getContent(), true);
+        if (!isset($data['roles'])) {
+            return new JsonResponse(
+                $serializer->serialize(['message' => "Vous devez renseigner au moins un rôle pour cet utilisateur."], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
 
-        $user->setRoles(['ROLE_USER']);
+        $user = new User();
+
+        if (isset($data['roles']) && is_array($data['roles'])) {
+            $user->setRoles($data['roles']);
+        } else {
+            $user->setRoles([$data['roles']]);
+        }
+
+        foreach (['lastname', 'firstname', 'email', 'is_verified' => 'isVerified', 'password'] as $camelCaseField => $field) {
+            $setter = 'set' . ucfirst($field);
+            $user->$setter($data[is_string($camelCaseField) ? $camelCaseField : $field]);
+        }
+
         $user->setPassword($passwordHasher->hashPassword($user, $user->getPassword()));
     
         // Persist here to create a "createdAt" value
@@ -260,7 +376,9 @@ class UserController extends AbstractController
         $em->flush();
         $cache->invalidateTags(['usersCache']);
 
-        $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser']));
+        $rolesDescriptions = $userService->getRolesDescriptions($user, $roleRepository->getIndexedRoles($user->getRoles()));
+        $user->setRolesDescriptions($rolesDescriptions);
+        $jsonUser = $serializer->serialize($user, 'json', SerializationContext::create()->setGroups(['getUser', 'getUserRoles']));
             
         $responseContent = [
             'message' => "Utilisateur ajouté avec succès.",
@@ -291,7 +409,7 @@ class UserController extends AbstractController
                         new OA\Property(
                             property: 'data',
                             type: 'object',
-                            ref: new Model(type: User::class, groups: ['getUser'])
+                            ref: new Model(type: User::class, groups: ['getUser', 'getUserRoles'])
                         )
                     ]
                 )
@@ -304,10 +422,19 @@ class UserController extends AbstractController
         in: 'path',
     )]
     #[OA\RequestBody(
-        required : true,
-        content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['updateUser']))
+        required: true,
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(property: 'roles', type: 'array', items: new OA\Items(type: 'string')),
+                new OA\Property(property: 'lastname', type: 'string'),
+                new OA\Property(property: 'firstname', type: 'string'),
+                new OA\Property(property: 'email', type: 'string'),
+                new OA\Property(property: 'isVerified', type: 'boolean'),
+            ]
+        )
     )]
-    public function updateUser(User $currentUser, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse
+    public function updateUser(User $currentUser, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, TagAwareCacheInterface $cache, RoleRepository $roleRepository, UserService $userService): JsonResponse
     {
         if (in_array('ROLE_SUPERADMIN', $currentUser->getRoles(), true)) {
             return new JsonResponse(
@@ -318,16 +445,25 @@ class UserController extends AbstractController
             );
         }
 
-        $updatedUser = $serializer->deserialize(
-            $request->getContent(), 
-            User::class, 
-            'json'
-        );
+        $data = json_decode($request->getContent(), true);
+        if (!isset($data['roles'])) {
+            return new JsonResponse(
+                $serializer->serialize(['message' => "Vous devez renseigner au moins un rôle pour cet utilisateur."], 'json'),
+                JsonResponse::HTTP_BAD_REQUEST,
+                [],
+                true
+            );
+        }
 
-        foreach (['lastname', 'firstname', 'email', 'isVerified'] as $field) {
+        if (is_array($data['roles'])) {
+            $currentUser->setRoles($data['roles']);
+        } else {
+            $currentUser->setRoles([$data['roles']]);
+        }
+
+        foreach (['lastname', 'firstname', 'email', 'is_verified' => 'isVerified'] as $camelCaseField => $field) {
             $setter = 'set' . ucfirst($field);
-            $getter = 'get' . ucfirst($field);
-            $currentUser->$setter($updatedUser->$getter());
+            $currentUser->$setter($data[is_string($camelCaseField) ? $camelCaseField : $field]);
         }
 
         $errors = $validator->validate($currentUser);
@@ -345,7 +481,9 @@ class UserController extends AbstractController
         $em->flush();
         $cache->invalidateTags(['usersCache']);
 
-        $jsonUser = $serializer->serialize($currentUser, 'json', SerializationContext::create()->setGroups(['getUser']));
+        $rolesDescriptions = $userService->getRolesDescriptions($currentUser, $roleRepository->getIndexedRoles($currentUser->getRoles()));
+        $currentUser->setRolesDescriptions($rolesDescriptions);
+        $jsonUser = $serializer->serialize($currentUser, 'json', SerializationContext::create()->setGroups(['getUser', 'getUserRoles']));
         
         $responseContent = [
             'message' => "Utilisateur modifié avec succès.",

@@ -65,6 +65,8 @@ services:
 
   App\Service\QueryHelper: ~
 
+  App\Service\UserService: ~
+
   App\Service\RolePermissionsService: ~
 
   App\Service\UserPermissionsService: ~

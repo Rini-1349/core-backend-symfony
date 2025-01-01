@@ -41,4 +41,42 @@ class RoleRepository extends ServiceEntityRepository
 
         return $this->queryHelper->buildPagination($results, $page, $limit, $totalResults);
     }
+
+    public function getIndexedRoles(array $roleIds) {
+        
+        // Récupérer les détails des rôles associés
+        $roles = $this->createQueryBuilder('r')
+            ->where('r.id IN (:ids)')
+            ->setParameter('ids', $roleIds)
+            ->getQuery()
+            ->getResult();
+
+        // Indexer les rôles par ID
+        $indexedRoles = [];
+        foreach ($roles as $role) {
+            $indexedRoles[$role->getId()] = [
+                'id' => $role->getId(),
+                'description' => $role->getDescription()
+            ];
+        }
+
+        return $indexedRoles;
+    }
+
+    public function findForSelect(): array
+    {
+        $roles = $this->createQueryBuilder('r')
+            ->where('r.id != (:role_superadmin)')
+            ->setParameter('role_superadmin', "ROLE_SUPERADMIN")
+            ->orderBy('r.description', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $rolesForSelect = [];
+        foreach ($roles as $role) {
+            $rolesForSelect[$role->getId()] = $role->getDescription();
+        }
+
+        return $rolesForSelect;
+    }
 }
