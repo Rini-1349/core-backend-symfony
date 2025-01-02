@@ -48,10 +48,10 @@ class AccessChecker
             }
         }
 
-        // Pas d'autorisation de l'utilisateur sur son propre rôle (informations et permissions)
+        // Pas d'autorisation de l'utilisateur sur son propre rôle (informations et permissions) ni sur le ROLE_SUPERADMIN
         if (($controller === 'App\Controller\RoleController' && in_array($action, ['getRoleDetails', 'updateRole'])) || 
         ($controller === 'App\Controller\RolePermissionController' && in_array($action, ['getRolePermissions', 'updateRolePermissions']))) {
-            if (isset($attributes['id']) && in_array($attributes['id'], $user->getRoles())) {
+            if (isset($attributes['id']) && (in_array($attributes['id'], $user->getRoles()) || $attributes['id'] === "ROLE_SUPERADMIN")) {
                 return false;
             }
         }

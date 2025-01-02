@@ -160,15 +160,6 @@ class RoleController extends AbstractController
     )]
     public function getRoleDetails(Role $role, SerializerInterface $serializer): JsonResponse
     {
-        if ($role->getId() === 'ROLE_SUPERADMIN') {
-            return new JsonResponse(
-                $serializer->serialize(['message' => "Opération interdite sur ce rôle."], 'json'),
-                JsonResponse::HTTP_BAD_REQUEST,
-                [],
-                true
-            );
-        }
-
         $jsonRole = $serializer->serialize($role, 'json', SerializationContext::create()->setGroups(['getRole']));
             
         $responseContent = [
@@ -288,15 +279,6 @@ class RoleController extends AbstractController
     )]
     public function updateRole(Role $currentRole, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse
     {
-        if ($currentRole->getId() === 'ROLE_SUPERADMIN') {
-            return new JsonResponse(
-                $serializer->serialize(['message' => "Opération interdite sur ce rôle."], 'json'),
-                JsonResponse::HTTP_BAD_REQUEST,
-                [],
-                true
-            );
-        }
-
         $updatedRole = $serializer->deserialize(
             $request->getContent(), 
             Role::class, 
