@@ -3,18 +3,19 @@
 namespace App\Security;
 
 use App\Service\UserPermissionsService;
-use Symfony\Bundle\SecurityBundle\Security as SecurityBundleSecurity;
+use Symfony\Bundle\SecurityBundle\Security;
+use App\Entity\User;
 
 
 class AccessChecker
 {
-    private SecurityBundleSecurity $security;
+    private Security $security;
     private UserPermissionsService $userPermissionsService;
     private $permissions;
     private $authorizedControllersAndActions;
 
 
-    public function __construct(UserPermissionsService $userPermissionsService, SecurityBundleSecurity $security)
+    public function __construct(UserPermissionsService $userPermissionsService, Security $security)
     {
         $this->security = $security;
         $this->userPermissionsService = $userPermissionsService;
@@ -26,8 +27,9 @@ class AccessChecker
     }
 
 
-    public function isAllowed(string $controller, string $action): bool
+    public function isAllowed(string $controller, string $action, array $attributes = []): bool
     {
+        /** @var User $user */
         $user = $this->security->getUser();
 
         if (!$user) {
@@ -37,6 +39,21 @@ class AccessChecker
         // Si l'utilisateur a le rôle ROLE_SUPERADMIN, il a tous les droits
         if (in_array('ROLE_SUPERADMIN', $user->getRoles())) {
             return true;
+        }
+
+        // Pas d'autorisation de l'utilisateur sur lui-même
+        if ($controller === 'App\Controller\UserController' && in_array($action, ['getUserDetails', 'updateUser', 'editUserPassword', 'deleteUser'])) {
+            if (isset($attributes['id']) && $attributes['id'] == $user->getId()) {
+                return false;
+            }
+        }
+
+        // Pas d'autorisation de l'utilisateur sur son propre rôle (informations et permissions)
+        if (($controller === 'App\Controller\RoleController' && in_array($action, ['getRoleDetails', 'updateRole'])) || 
+        ($controller === 'App\Controller\RolePermissionController' && in_array($action, ['getRolePermissions', 'updateRolePermissions']))) {
+            if (isset($attributes['id']) && in_array($attributes['id'], $user->getRoles())) {
+                return false;
+            }
         }
 
         $this->permissions = $this->userPermissionsService->loadPermissions($user);

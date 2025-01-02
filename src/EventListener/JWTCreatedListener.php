@@ -6,6 +6,7 @@ use App\Service\UserPermissionsService;
 use Lexik\Bundle\JWTAuthenticationBundle\Event\JWTCreatedEvent;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
+use App\Entity\User;
 
 class JWTCreatedListener
 {
@@ -21,6 +22,7 @@ class JWTCreatedListener
     public function onJWTCreated(JWTCreatedEvent $event)
     {
         // Récupérer l'utilisateur actuellement connecté
+        /** @var User $user */
         $user = $event->getUser();
 
         // Vérifiez que l'utilisateur implémente bien UserInterface

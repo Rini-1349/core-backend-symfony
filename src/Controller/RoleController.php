@@ -20,7 +20,9 @@ use App\Attribute\ControllerMetadata;
 use App\Attribute\ActionMetadata;
 use App\Attribute\AccessMethods;
 use App\Entity\Role;
+use App\Entity\User;
 use App\Repository\RoleRepository;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\String\Slugger\AsciiSlugger;
 
 #[ControllerMetadata(alias: "roles", description: 'Rôles')]
@@ -89,7 +91,7 @@ class RoleController extends AbstractController
             )
         ]
     )]
-    public function getRoles(RoleRepository $roleRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache, QueryParameterService $queryParameterService): JsonResponse
+    public function getRoles(RoleRepository $roleRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache, QueryParameterService $queryParameterService, Security $security): JsonResponse
     {
         $cache->invalidateTags(['rolesCache']);
 
@@ -101,12 +103,14 @@ class RoleController extends AbstractController
             'orderDir' => 'ASC',
         ];
 
+        /** @var User $user */
+        $user = $security->getUser();
         $params = $queryParameterService->extractParameters($request, $defaultParameters);
 
         $cacheKey = sprintf(
             "getRoles-%s",
             implode('-', $params)
-        );
+        ) . '-' . $user->getId();
         $rolesList = $cache->get($cacheKey, function (ItemInterface $item) use ($roleRepository, $params) {
             $item->tag("rolesCache");
             return $roleRepository->getPaginatedRolesData($params);
@@ -116,7 +120,7 @@ class RoleController extends AbstractController
 
         $responseContent = [
             'message' => "Liste des rôles récupérée.",
-            'data' => json_decode($jsonRolesList, true),
+            'data' => json_decode($jsonRolesList, true)
         ];
 
         return new JsonResponse(json_encode($responseContent), Response::HTTP_OK, [], true);

@@ -29,7 +29,10 @@ class UserAccessListener
             $controllerClass = get_class($controller[0]);
             $action = $controller[1];
 
-            if (!$this->accessChecker->isActionAuthorized($controllerClass, $action) && !$this->accessChecker->isAllowed($controllerClass, $action)) {
+            // Récupérer les arguments de la méthode
+            $attributes = $event->getRequest()->attributes->all();
+
+            if (!$this->accessChecker->isActionAuthorized($controllerClass, $action) && !$this->accessChecker->isAllowed($controllerClass, $action, $attributes)) {
                 $event->setController(function () {
                     return new JsonResponse(['error' => 'Access Denied'], Response::HTTP_FORBIDDEN);
                 });

@@ -24,6 +24,7 @@ use App\Attribute\ActionMetadata;
 use App\Attribute\AccessMethods;
 use App\Repository\RoleRepository;
 use App\Service\UserService;
+use Symfony\Bundle\SecurityBundle\Security;
 
 #[ControllerMetadata(alias: "users", description: 'Utilisateurs')]
 #[AccessMethods(
@@ -180,7 +181,7 @@ class UserController extends AbstractController
             )
         ]
     )]
-    public function getUsers(UserRepository $userRepository, RoleRepository $roleRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache, QueryParameterService $queryParameterService): JsonResponse
+    public function getUsers(UserRepository $userRepository, RoleRepository $roleRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache, QueryParameterService $queryParameterService, Security $security): JsonResponse
     {
         $cache->invalidateTags(['usersCache']);
 
@@ -198,12 +199,14 @@ class UserController extends AbstractController
             'get_roles' => false
         ];
 
+        /** @var User $user */
+        $user = $security->getUser();
         $params = $queryParameterService->extractParameters($request, $defaultParameters);
 
         $cacheKey = sprintf(
             "getUsers-%s",
             implode('-', $params)
-        );
+        ) . '-' . $user->getId();
         $usersList = $cache->get($cacheKey, function (ItemInterface $item) use ($userRepository, $params) {
             $item->tag("usersCache");
             return $userRepository->getPaginatedUsersData($params);
