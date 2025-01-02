@@ -165,7 +165,7 @@ class ProfileController extends AbstractController
             type: 'object',
             properties: [
                 new OA\Property(property: 'currentPassword', type: 'string', description: 'Ancien mot de passe'),
-                new OA\Property(property: 'newPassword', type: 'string', description: 'Nouveau mot de passe')
+                new OA\Property(property: 'password', type: 'string', description: 'Nouveau mot de passe')
             ]
         )
     )]
@@ -186,7 +186,7 @@ class ProfileController extends AbstractController
 
         $content = $serializer->deserialize($request->getContent(), 'array', 'json');
 
-        if (!isset($content['currentPassword']) || !isset($content['newPassword'])) {
+        if (!isset($content['currentPassword']) || !isset($content['password'])) {
             return new JsonResponse(
                 $serializer->serialize(['message' => 'Ancien et nouveau mots de passe obligatoires'], 'json'),
                 JsonResponse::HTTP_BAD_REQUEST,
@@ -204,7 +204,7 @@ class ProfileController extends AbstractController
             );
         }
 
-        $user->setPassword($passwordHasher->hashPassword($user, $content['newPassword']));
+        $user->setPassword($passwordHasher->hashPassword($user, $content['password']));
 
         $errors = $validator->validate($user);
 

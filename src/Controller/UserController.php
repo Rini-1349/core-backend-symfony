@@ -535,7 +535,7 @@ class UserController extends AbstractController
     )]
     #[OA\RequestBody(
         required : true,
-        content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['newPassword']))
+        content : new OA\JsonContent(ref: new Model(type: User::class, groups: ['password']))
     )]
     public function editUserPassword(User $user, Request $request, SerializerInterface $serializer, EntityManagerInterface $em, ValidatorInterface $validator, UserPasswordHasherInterface $passwordHasher): Response
     {
@@ -550,7 +550,7 @@ class UserController extends AbstractController
 
         $content = $serializer->deserialize($request->getContent(), 'array', 'json');
 
-        if (!isset($content['newPassword'])) {
+        if (!isset($content['password'])) {
             return new JsonResponse(
                 $serializer->serialize(['message' => 'Mot de passe obligatoire'], 'json'),
                 JsonResponse::HTTP_BAD_REQUEST,
@@ -559,7 +559,7 @@ class UserController extends AbstractController
             );
         }
 
-        $user->setPassword($passwordHasher->hashPassword($user, $content['newPassword']));
+        $user->setPassword($passwordHasher->hashPassword($user, $content['password']));
 
         $errors = $validator->validate($user);
 
